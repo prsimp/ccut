@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 func ClaudeDir() string {
@@ -11,9 +12,12 @@ func ClaudeDir() string {
 	return filepath.Join(home, ".claude")
 }
 
+func StatsPath() string {
+	return filepath.Join(ClaudeDir(), "stats-cache.json")
+}
+
 func LoadStats() (*StatsCache, error) {
-	path := filepath.Join(ClaudeDir(), "stats-cache.json")
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(StatsPath())
 	if err != nil {
 		return nil, err
 	}
@@ -22,4 +26,13 @@ func LoadStats() (*StatsCache, error) {
 		return nil, err
 	}
 	return &stats, nil
+}
+
+// StatsMtime returns the modification time of stats-cache.json.
+func StatsMtime() time.Time {
+	info, err := os.Stat(StatsPath())
+	if err != nil {
+		return time.Time{}
+	}
+	return info.ModTime()
 }

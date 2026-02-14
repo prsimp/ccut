@@ -21,8 +21,7 @@ var (
 	ActiveTab = lipgloss.NewStyle().
 			Bold(true).
 			Foreground(lipgloss.Color("212")).
-			Border(lipgloss.NormalBorder(), false, false, true, false).
-			BorderForeground(lipgloss.Color("212")).
+			Underline(true).
 			Padding(0, 2)
 
 	InactiveTab = lipgloss.NewStyle().

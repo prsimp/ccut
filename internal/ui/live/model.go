@@ -31,7 +31,7 @@ func New(stats *data.StatsCache) Model {
 	return Model{
 		stats:      stats,
 		spinner:    s,
-		lastUpdate: time.Now(),
+		lastUpdate: data.StatsMtime(),
 	}
 }
 
@@ -54,7 +54,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	case data.StatsUpdatedMsg:
 		m.prevStats = m.stats
 		m.stats = msg.Stats
-		m.lastUpdate = time.Now()
+		m.lastUpdate = data.StatsMtime()
 		return m, data.WatchStats()
 	case TickMsg:
 		return m, tickCmd()
@@ -68,7 +68,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			if err == nil {
 				m.prevStats = m.stats
 				m.stats = stats
-				m.lastUpdate = time.Now()
+				m.lastUpdate = data.StatsMtime()
 			}
 		}
 	}
