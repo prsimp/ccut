@@ -13,13 +13,14 @@ import (
 )
 
 type Model struct {
-	Stats *data.StatsCache
-	Creds *data.Credentials
-	Width int
+	Stats      *data.StatsCache
+	Creds      *data.Credentials
+	DailyCosts map[string]float64
+	Width      int
 }
 
-func New(stats *data.StatsCache, creds *data.Credentials) Model {
-	return Model{Stats: stats, Creds: creds}
+func New(stats *data.StatsCache, creds *data.Credentials, dailyCosts map[string]float64) Model {
+	return Model{Stats: stats, Creds: creds, DailyCosts: dailyCosts}
 }
 
 func (m Model) View() string {
@@ -87,10 +88,12 @@ func (m Model) renderLifetime() string {
 	s := m.Stats
 	dur := format.Duration(s.LongestSession.Duration)
 
+	totalCost := data.TotalCost(s.ModelUsage)
 	lines := []string{
-		fmt.Sprintf("  Sessions: %s    Messages: %s",
+		fmt.Sprintf("  Sessions: %s    Messages: %s    Est. Cost: %s",
 			styles.StatValue.Render(format.Number(s.TotalSessions)),
-			styles.StatValue.Render(format.Number(s.TotalMessages))),
+			styles.StatValue.Render(format.Number(s.TotalMessages)),
+			styles.Special.Render(format.Cost(totalCost))),
 		fmt.Sprintf("  Since: %s    Longest: %s (%d msgs)",
 			styles.Special.Render(format.DateShort(s.FirstSessionDate)),
 			styles.Special.Render(dur),
@@ -120,19 +123,34 @@ func (m Model) renderModelTable() string {
 		hdr(padL("Input", 10)) +
 		hdr(padL("Output", 10)) +
 		hdr(padL("Cache Read", 12)) +
-		hdr(padL("Cache Write", 12))
+		hdr(padL("Cache Write", 12)) +
+		hdr(padL("Cost", 10))
 
 	var lines []string
 	lines = append(lines, header)
+	var totalCost float64
 	for _, r := range rows {
+		cost := data.CalculateCost(r.name, r.usage)
+		totalCost += cost
 		line := "  " +
 			styles.Highlight.Render(pad(format.ShortModel(r.name), 16)) +
 			padL(format.Tokens(r.usage.InputTokens), 10) +
 			padL(format.Tokens(r.usage.OutputTokens), 10) +
 			padL(format.Tokens(r.usage.CacheReadInputTokens), 12) +
-			padL(format.Tokens(r.usage.CacheCreationInputTokens), 12)
+			padL(format.Tokens(r.usage.CacheCreationInputTokens), 12) +
+			styles.Special.Render(padL(format.Cost(cost), 10))
 		lines = append(lines, line)
 	}
+
+	totalLine := "  " +
+		pad("", 16) +
+		padL("", 10) +
+		padL("", 10) +
+		padL("", 12) +
+		styles.Bold.Render(padL("Total", 12)) +
+		styles.Special.Render(padL(format.Cost(totalCost), 10))
+	lines = append(lines, totalLine)
+
 	return title + "\n" + strings.Join(lines, "\n")
 }
 
@@ -145,9 +163,14 @@ func (m Model) renderDailyChart() string {
 
 	var items []components.SparkItem
 	for _, a := range activities {
+		suffix := ""
+		if cost, ok := m.DailyCosts[a.Date]; ok && cost > 0 {
+			suffix = format.Cost(cost)
+		}
 		items = append(items, components.SparkItem{
-			Label: format.DateShort(a.Date),
-			Value: a.MessageCount,
+			Label:  format.DateShort(a.Date),
+			Value:  a.MessageCount,
+			Suffix: suffix,
 		})
 	}
 

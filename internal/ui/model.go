@@ -22,12 +22,20 @@ type RootModel struct {
 	ready     bool
 }
 
+type DailyCostsLoadedMsg struct {
+	Costs map[string]float64
+}
+
+func loadDailyCosts() tea.Msg {
+	return DailyCostsLoadedMsg{Costs: data.ComputeDailyCosts()}
+}
+
 func NewRoot() RootModel {
 	stats, _ := data.LoadStats()
 	creds, _ := data.LoadCredentials()
 
 	return RootModel{
-		dashboard: dashboard.New(stats, creds),
+		dashboard: dashboard.New(stats, creds, nil),
 		sessions:  sessions.New(),
 		live:      live.New(stats),
 	}
@@ -38,6 +46,7 @@ func (m RootModel) Init() tea.Cmd {
 		sessions.LoadSessions(),
 		data.WatchStats(),
 		m.live.Init(),
+		loadDailyCosts,
 	)
 }
 
@@ -91,6 +100,10 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.sessions, cmd = m.sessions.Update(msg)
 		cmds = append(cmds, cmd)
 		return m, tea.Batch(cmds...)
+
+	case DailyCostsLoadedMsg:
+		m.dashboard.DailyCosts = msg.Costs
+		return m, nil
 	}
 
 	switch m.activeTab {

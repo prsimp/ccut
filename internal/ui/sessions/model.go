@@ -105,11 +105,12 @@ func (m Model) renderList() string {
 
 	h := styles.TableHeader.Render
 	header := "  " +
-		h(pad("Project", 20)) +
+		h(pad("Project", 30)) +
 		h(pad("Date", 14)) +
 		h(padLeft("Msgs", 6)) + " " +
 		h(pad("Model", 14)) +
-		h(padLeft("Output", 8))
+		h(padLeft("Output", 8)) + " " +
+		h(padLeft("Cost", 8))
 
 	visible := m.visibleLines()
 	end := m.offset + visible
@@ -128,18 +129,20 @@ func (m Model) renderList() string {
 			nameStyle = styles.Special
 		}
 
-		project := truncate(s.ProjectName, 20)
+		project := truncate(s.ProjectName, 30)
 		date := format.Date(s.LastTime)
 		msgs := fmt.Sprintf("%d", s.MessageCount)
 		model := format.ShortModel(s.Model)
 		output := format.Tokens(s.OutputTokens)
+		cost := format.Cost(data.CalculateCost(s.Model, s.TokenUsage))
 
 		line := cursor +
-			nameStyle.Render(pad(project, 20)) +
+			nameStyle.Render(pad(project, 30)) +
 			styles.Subtle.Render(pad(date, 14)) +
 			styles.StatValue.Render(padLeft(msgs, 6)) + " " +
 			styles.Subtle.Render(pad(model, 14)) +
-			styles.StatValue.Render(padLeft(output, 8))
+			styles.StatValue.Render(padLeft(output, 8)) + " " +
+			styles.Special.Render(padLeft(cost, 8))
 
 		lines = append(lines, line)
 	}
@@ -178,6 +181,7 @@ func (m Model) renderDetail() string {
 	lines = append(lines, fmt.Sprintf("  Model:      %s", format.ShortModel(s.Model)))
 	lines = append(lines, fmt.Sprintf("  Messages:   %s", styles.StatValue.Render(format.Number(s.MessageCount))))
 	lines = append(lines, fmt.Sprintf("  Output:     %s tokens", styles.StatValue.Render(format.Tokens(s.OutputTokens))))
+	lines = append(lines, fmt.Sprintf("  Est. Cost:  %s", styles.Special.Render(format.Cost(data.CalculateCost(s.Model, s.TokenUsage)))))
 	lines = append(lines, fmt.Sprintf("  Started:    %s", format.Date(s.FirstTime)))
 	lines = append(lines, fmt.Sprintf("  Last:       %s", format.Date(s.LastTime)))
 	lines = append(lines, "")

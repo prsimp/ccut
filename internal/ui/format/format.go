@@ -95,6 +95,26 @@ func ShortModel(model string) string {
 	return m
 }
 
+// Cost formats a dollar amount for display.
+func Cost(dollars float64) string {
+	if dollars >= 1000 {
+		return fmt.Sprintf("$%.0f", dollars)
+	}
+	if dollars >= 100 {
+		return fmt.Sprintf("$%.1f", dollars)
+	}
+	if dollars >= 1 {
+		return fmt.Sprintf("$%.2f", dollars)
+	}
+	if dollars >= 0.01 {
+		return fmt.Sprintf("$%.3f", dollars)
+	}
+	if dollars < 0.001 {
+		return "$0.00"
+	}
+	return fmt.Sprintf("$%.4f", dollars)
+}
+
 // RelativeTime returns a relative time string.
 func RelativeTime(isoDate string) string {
 	t, err := time.Parse(time.RFC3339, isoDate)
