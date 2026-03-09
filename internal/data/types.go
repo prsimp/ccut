@@ -89,5 +89,6 @@ type SessionInfo struct {
 	MessageCount int
 	Model        string
 	OutputTokens int
+	TokenUsage   ModelUsage
 	ToolsUsed    []string
 }

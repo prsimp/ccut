@@ -40,12 +40,17 @@ func Sparkline(items []SparkItem, width int) string {
 		bar := styles.BarFull.Render(strings.Repeat("█", filled)) +
 			styles.BarEmpty.Render(strings.Repeat("░", barWidth-filled))
 		val := styles.Subtle.Render(fmt.Sprintf(" %s", format.Number(item.Value)))
-		lines = append(lines, fmt.Sprintf("  %s %s%s", styles.Subtle.Render(label), bar, val))
+		suffix := ""
+		if item.Suffix != "" {
+			suffix = " " + styles.Special.Render(item.Suffix)
+		}
+		lines = append(lines, fmt.Sprintf("  %s %s%s%s", styles.Subtle.Render(label), bar, val, suffix))
 	}
 	return strings.Join(lines, "\n")
 }
 
 type SparkItem struct {
-	Label string
-	Value int
+	Label  string
+	Value  int
+	Suffix string
 }
