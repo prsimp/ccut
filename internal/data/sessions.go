@@ -10,6 +10,7 @@ import (
 )
 
 // DiscoverSessions finds all session JSONL files and extracts metadata.
+// Subagent sessions are rolled up into their parent sessions.
 // Returns at most maxSessions, sorted by most recent first.
 func DiscoverSessions(maxSessions int) ([]SessionInfo, error) {
 	projectsDir := filepath.Join(ClaudeDir(), "projects")
@@ -18,7 +19,11 @@ func DiscoverSessions(maxSessions int) ([]SessionInfo, error) {
 		return nil, err
 	}
 
-	var sessions []SessionInfo
+	// First pass: collect parent sessions and subagent sessions separately.
+	parentSessions := make(map[string]*SessionInfo) // keyed by sessionID
+	var parentOrder []string                         // preserve discovery order
+	var orphanSubagents []SessionInfo                // subagents without a matching parent
+
 	for _, projEntry := range entries {
 		if !projEntry.IsDir() {
 			continue
@@ -28,6 +33,8 @@ func DiscoverSessions(maxSessions int) ([]SessionInfo, error) {
 		if err != nil {
 			continue
 		}
+
+		// Discover top-level sessions
 		for _, f := range files {
 			if !strings.HasSuffix(f.Name(), ".jsonl") {
 				continue
@@ -35,9 +42,54 @@ func DiscoverSessions(maxSessions int) ([]SessionInfo, error) {
 			sessionID := strings.TrimSuffix(f.Name(), ".jsonl")
 			info := parseSessionMeta(filepath.Join(projPath, f.Name()), sessionID, projEntry.Name())
 			if info.MessageCount > 0 {
-				sessions = append(sessions, info)
+				parentSessions[sessionID] = &info
+				parentOrder = append(parentOrder, sessionID)
 			}
 		}
+
+		// Discover subagent sessions inside <sessionID>/subagents/ dirs
+		for _, f := range files {
+			if !f.IsDir() {
+				continue
+			}
+			parentID := f.Name()
+			subagentsDir := filepath.Join(projPath, parentID, "subagents")
+			subFiles, err := os.ReadDir(subagentsDir)
+			if err != nil {
+				continue
+			}
+			for _, sf := range subFiles {
+				if !strings.HasSuffix(sf.Name(), ".jsonl") {
+					continue
+				}
+				subID := strings.TrimSuffix(sf.Name(), ".jsonl")
+				subInfo := parseSessionMeta(filepath.Join(subagentsDir, sf.Name()), subID, projEntry.Name())
+				subInfo.ParentID = parentID
+				if subInfo.MessageCount == 0 {
+					continue
+				}
+				// Roll up into parent if found
+				if parent, ok := parentSessions[parentID]; ok {
+					parent.SubagentCount++
+					parent.SubagentCost += CalculateCost(subInfo.Model, subInfo.TokenUsage)
+					parent.SubagentUsage.InputTokens += subInfo.TokenUsage.InputTokens
+					parent.SubagentUsage.OutputTokens += subInfo.TokenUsage.OutputTokens
+					parent.SubagentUsage.CacheReadInputTokens += subInfo.TokenUsage.CacheReadInputTokens
+					parent.SubagentUsage.CacheCreationInputTokens += subInfo.TokenUsage.CacheCreationInputTokens
+				} else {
+					orphanSubagents = append(orphanSubagents, subInfo)
+				}
+			}
+		}
+	}
+
+	// Build final list from parents + any orphan subagents
+	var sessions []SessionInfo
+	for _, id := range parentOrder {
+		sessions = append(sessions, *parentSessions[id])
+	}
+	for _, s := range orphanSubagents {
+		sessions = append(sessions, s)
 	}
 
 	sort.Slice(sessions, func(i, j int) bool {
@@ -179,8 +231,8 @@ func extractProjectName(dir string) string {
 	return dir
 }
 
-// ComputeDailyCosts scans all session JSONL files and aggregates estimated
-// cost by date. Returns a map of "YYYY-MM-DD" → cost in USD.
+// ComputeDailyCosts scans all session JSONL files (including subagents)
+// and aggregates estimated cost by date. Returns a map of "YYYY-MM-DD" → cost in USD.
 func ComputeDailyCosts() map[string]float64 {
 	costs := make(map[string]float64)
 	projectsDir := filepath.Join(ClaudeDir(), "projects")
@@ -199,10 +251,22 @@ func ComputeDailyCosts() map[string]float64 {
 			continue
 		}
 		for _, f := range files {
-			if !strings.HasSuffix(f.Name(), ".jsonl") {
-				continue
+			if strings.HasSuffix(f.Name(), ".jsonl") {
+				aggregateSessionCosts(filepath.Join(projPath, f.Name()), costs)
 			}
-			aggregateSessionCosts(filepath.Join(projPath, f.Name()), costs)
+			// Also scan subagent directories
+			if f.IsDir() {
+				subagentsDir := filepath.Join(projPath, f.Name(), "subagents")
+				subFiles, err := os.ReadDir(subagentsDir)
+				if err != nil {
+					continue
+				}
+				for _, sf := range subFiles {
+					if strings.HasSuffix(sf.Name(), ".jsonl") {
+						aggregateSessionCosts(filepath.Join(subagentsDir, sf.Name()), costs)
+					}
+				}
+			}
 		}
 	}
 	return costs

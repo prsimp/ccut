@@ -80,15 +80,19 @@ type TokenUsage struct {
 
 // SessionInfo is the metadata we extract per session file
 type SessionInfo struct {
-	SessionID    string
-	ProjectDir   string
-	ProjectName  string
-	GitBranch    string
-	FirstTime    string
-	LastTime     string
-	MessageCount int
-	Model        string
-	OutputTokens int
-	TokenUsage   ModelUsage
-	ToolsUsed    []string
+	SessionID     string
+	ParentID      string // non-empty for subagent sessions
+	ProjectDir    string
+	ProjectName   string
+	GitBranch     string
+	FirstTime     string
+	LastTime      string
+	MessageCount  int
+	Model         string
+	OutputTokens  int
+	TokenUsage    ModelUsage
+	ToolsUsed     []string
+	SubagentCount int        // number of subagent sessions rolled into this parent
+	SubagentCost  float64    // total cost of subagent sessions
+	SubagentUsage ModelUsage // aggregated subagent token usage
 }

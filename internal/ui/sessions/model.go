@@ -134,7 +134,9 @@ func (m Model) renderList() string {
 		msgs := fmt.Sprintf("%d", s.MessageCount)
 		model := format.ShortModel(s.Model)
 		output := format.Tokens(s.OutputTokens)
-		cost := format.Cost(data.CalculateCost(s.Model, s.TokenUsage))
+		sessionCost := data.CalculateCost(s.Model, s.TokenUsage)
+		totalCost := sessionCost + s.SubagentCost
+		cost := format.Cost(totalCost)
 
 		line := cursor +
 			nameStyle.Render(pad(project, 30)) +
@@ -181,7 +183,24 @@ func (m Model) renderDetail() string {
 	lines = append(lines, fmt.Sprintf("  Model:      %s", format.ShortModel(s.Model)))
 	lines = append(lines, fmt.Sprintf("  Messages:   %s", styles.StatValue.Render(format.Number(s.MessageCount))))
 	lines = append(lines, fmt.Sprintf("  Output:     %s tokens", styles.StatValue.Render(format.Tokens(s.OutputTokens))))
-	lines = append(lines, fmt.Sprintf("  Est. Cost:  %s", styles.Special.Render(format.Cost(data.CalculateCost(s.Model, s.TokenUsage)))))
+
+	sessionCost := data.CalculateCost(s.Model, s.TokenUsage)
+	lines = append(lines, fmt.Sprintf("  Est. Cost:  %s", styles.Special.Render(format.Cost(sessionCost))))
+
+	if s.SubagentCount > 0 {
+		lines = append(lines, "")
+		lines = append(lines, styles.Bold.Render("  Subagents"))
+		lines = append(lines, fmt.Sprintf("    Count:    %s", styles.StatValue.Render(format.Number(s.SubagentCount))))
+		lines = append(lines, fmt.Sprintf("    Output:   %s tokens", styles.StatValue.Render(format.Tokens(s.SubagentUsage.OutputTokens))))
+		lines = append(lines, fmt.Sprintf("    Cost:     %s", styles.Special.Render(format.Cost(s.SubagentCost))))
+		lines = append(lines, "")
+		totalCost := sessionCost + s.SubagentCost
+		lines = append(lines, fmt.Sprintf("  %s  %s",
+			styles.Bold.Render("Total Cost:"),
+			styles.Special.Render(format.Cost(totalCost))))
+	}
+
+	lines = append(lines, "")
 	lines = append(lines, fmt.Sprintf("  Started:    %s", format.Date(s.FirstTime)))
 	lines = append(lines, fmt.Sprintf("  Last:       %s", format.Date(s.LastTime)))
 	lines = append(lines, "")
